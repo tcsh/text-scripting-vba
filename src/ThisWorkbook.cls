@@ -28,7 +28,7 @@ Const ENABLE_WORKBOOK_OPEN As Boolean = True
 'Const ENABLE_WORKBOOK_OPEN As Boolean = False
 
 'ショートカットキー
-Const SHORTKEY_RELOAD As String = "^r" 'ctrl + r
+Const SHORTKEY_RELOAD As String = "r" 'ctrl + r
 
 
 '----------------------------- Workbook_open() ---------------
@@ -410,7 +410,7 @@ Private Sub setShortKey()
     ' Mac OS Xの場合の注意: ThisWorkbook.reloadModule関数を持つマクロファイルを複数開いていると、
     ' 最後に開いたマクロファイルの ThisWorkbook.reloadModule関数が呼び出される模様。
     ' (その場合、マクロ一覧から'該当マクロファイル!reloadModule' を呼び出してください。)
-    Application.OnKey SHORTKEY_RELOAD, "ThisWorkbook.reloadModule"
+    Application.OnKey "^" & SHORTKEY_RELOAD, "ThisWorkbook.reloadModule"
 
   End If
   
