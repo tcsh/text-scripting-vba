@@ -1,12 +1,3 @@
-VERSION 1.0 CLASS
-BEGIN
-  MultiUse = -1  'True
-END
-Attribute VB_Name = "ThisWorkbook"
-Attribute VB_GlobalNameSpace = False
-Attribute VB_Creatable = False
-Attribute VB_PredeclaredId = True
-Attribute VB_Exposed = True
 ' Text Scripting on VBA v1.0.0
 ' last update: 2013-01-03
 ' HATANO Hirokazu
@@ -53,7 +44,6 @@ Private Sub Workbook_BeforeClose(Cancel As Boolean)
 '----------------------------- public Subs/Functions ---------------
 
 Public Sub reloadModule()
-Attribute reloadModule.VB_ProcData.VB_Invoke_Func = "j\n14"
   '手動リロード用 Public関数
   
   Dim msgError As String
