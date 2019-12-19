@@ -4,7 +4,7 @@ Option Explicit
 
 
 Sub dispOS()
-  Dim nameOS As String 
+  Dim nameOS As String
   nameOS = Application.OperatingSystem
 
   If nameOS Like "Windows *" Then

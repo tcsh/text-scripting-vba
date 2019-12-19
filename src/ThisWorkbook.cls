@@ -31,13 +31,15 @@ Private Sub Workbook_Open()
   End If
   
   Call setShortKey
-  Call reloadModule
+  'Call reloadModule
+
+  Call ImportAllSource
  End Sub
 
 'ワークブック クローズ時に実行
 Private Sub Workbook_BeforeClose(Cancel As Boolean)
   Call clearShortKey
- End Sub
+End Sub
 
 
 
@@ -141,8 +143,8 @@ Private Sub exportModule(ByVal nameModule As String, ByVal nameFile As String)
   For Each component In ThisWorkbook.VBProject.VBComponents
     
     If component.Name = nameModule Then
-      component.Export ThisWorkbook.path & Application.PathSeparator & nameFile
-      MsgBox nameModule & " を " & ThisWorkbook.path & Application.PathSeparator & nameFile & " として保存しました。"
+      component.Export ThisWorkbook.Path & Application.PathSeparator & nameFile
+      MsgBox nameModule & " を " & ThisWorkbook.Path & Application.PathSeparator & nameFile & " として保存しました。"
     End If
     
   Next component
@@ -245,13 +247,13 @@ Private Function absPath(ByVal pathFile As String) As String
         ' Case1-1. 相対指定 "../" 対応
         Case "..":
           'MsgBox "Case1-1: " & pathFile
-          absPath = ThisWorkbook.path & Application.PathSeparator & pathFile
+          absPath = ThisWorkbook.Path & Application.PathSeparator & pathFile
           Exit Function
     
         ' Case1-2. 相対指定 "./" 対応
         Case Else:
           'MsgBox "Case1-2: " & pathFile
-          absPath = ThisWorkbook.path & Mid(pathFile, 2, Len(pathFile) - 1)
+          absPath = ThisWorkbook.Path & Mid(pathFile, 2, Len(pathFile) - 1)
           Exit Function
     
       End Select
@@ -286,7 +288,7 @@ Private Function absPath(ByVal pathFile As String) As String
  
   ' Case3-2. 無指定 "filename"対応
   If Left(pathFile, 1) Like "[0-9]" Or Left(pathFile, 1) Like "[A-z]" Then
-    absPath = ThisWorkbook.path & Application.PathSeparator & pathFile
+    absPath = ThisWorkbook.Path & Application.PathSeparator & pathFile
     Exit Function
   Else
     MsgBox "Error[AbsPath]: fail to get absolute path."
@@ -420,3 +422,140 @@ Private Sub clearShortKey()
   
 End Sub
 
+'<summary>
+' 機能: 全VBAソースをエクスポートする
+' 引数: なし
+' </summary>
+' <remarks>
+' 1. VBEにおいてMicrosoft Visual Basic for Applications Extensibilityへの参照を追加する。
+' 2. 「VBAプロジェクト オブジェクトモデルへのアクセスを信頼する」オプションを指定する。
+' </remarks>
+Sub ExportAllSource()
+    Dim module                  As VBComponent      '// モジュール
+    Dim moduleList              As VBComponents     '// VBAプロジェクトの全モジュール
+    Dim extension                                   '// モジュールの拡張子
+    Dim sPath                                       '// 処理対象ブックのパス
+    Dim sFilePath                                   '// エクスポートファイルパス
+    Dim TargetBook                                  '// 処理対象ブックオブジェクト
+    
+    '// ブックが開かれていない場合は個人用マクロブック（personal.xlsb）を対象とする
+    If (Workbooks.count = 1) Then
+        Set TargetBook = ThisWorkbook
+    '// ブックが開かれている場合は表示しているブックを対象とする
+    Else
+        Set TargetBook = ActiveWorkbook
+    End If
+    
+    sPath = TargetBook.Path
+    
+    '// 処理対象ブックのモジュール一覧を取得
+    Set moduleList = TargetBook.VBProject.VBComponents
+    
+    '// VBAプロジェクトに含まれる全てのモジュールをループ
+    For Each module In moduleList
+        '// クラス
+        If (module.Type = vbext_ct_ClassModule) Then
+            extension = "cls"
+        '// フォーム
+        ElseIf (module.Type = vbext_ct_MSForm) Then
+            '// .frxも一緒にエクスポートされる
+            extension = "frm"
+        '// 標準モジュール
+        ElseIf (module.Type = vbext_ct_StdModule) Then
+            extension = "bas"
+        '// その他
+        Else
+            '// エクスポート対象外のため次ループへ
+            GoTo CONTINUE
+        End If
+        
+        '// エクスポート実施
+        sFilePath = sPath & "\" & module.Name & "." & extension
+        Call module.Export(sFilePath)
+        
+        '// 出力先確認用ログ出力
+        Debug.Print sFilePath
+CONTINUE:
+    Next
+End Sub
+
+'// 指定ワークブックに指定フォルダ配下のモジュールをインポートする
+'// 引数１：ワークブック
+'// 引数２：モジュール格納フォルダパス
+Sub ImportAllSource()
+    On Error Resume Next
+    
+    'Dim oFso        As New FileSystemObject     '// FileSystemObjectオブジェクト
+    Dim oFso        As Object                  '// FileSystemObjectオブジェクト
+    Dim sArModule() As String                   '// モジュールファイル配列
+    Dim sModule                                 '// モジュールファイル
+    Dim sExt        As String                   '// 拡張子
+    Dim iMsg                                    '// MsgBox関数戻り値
+    
+    Set oFso = CreateObject("Scripting.FileSystemObject")
+    
+    iMsg = MsgBox("同名のモジュールは上書きします。よろしいですか？", vbOKCancel, "上書き確認")
+    If (iMsg <> vbOK) Then
+        Exit Sub
+    End If
+    
+    ReDim sArModule(0)
+    
+    '// 全モジュールのファイルパスを取得
+    Call SearchAllFile(ThisWorkbook.Path, sArModule)
+    
+    '// 全モジュールをループ
+    For Each sModule In sArModule
+        '// 拡張子を小文字で取得
+        sExt = LCase(oFso.GetExtensionName(sModule))
+        
+        '// 拡張子がcls、frm、basのいずれかの場合
+        If (sExt = "cls" Or sExt = "frm" Or sExt = "bas") Then
+            '// 同名モジュールを削除
+            Call ActiveWorkbook.VBProject.VBComponents.Remove(ActiveWorkbook.VBProject.VBComponents(oFso.GetBaseName(sModule)))
+            '// モジュールを追加
+            Call ActiveWorkbook.VBProject.VBComponents.Import(sModule)
+            '// Import確認用ログ出力
+            Debug.Print sModule
+        End If
+    Next
+End Sub
+ 
+'// 指定フォルダ配下のファイルパスを取得
+'// 引数１：フォルダパス
+'// 引数２：ファイルパス配列
+Sub SearchAllFile(a_sFolder As String, s_ArFile() As String)
+    'Dim oFso        As New FileSystemObject
+    Dim oFso        As Object                  '// FileSystemObjectオブジェクト
+    Dim oFolder     As Object 'Folder
+    Dim oSubFolder  As Object 'Folder
+    Dim oFile       As Object 'File
+    Dim i
+    
+    Set oFso = CreateObject("Scripting.FileSystemObject")
+    
+    '// フォルダがない場合
+    If (oFso.FolderExists(a_sFolder) = False) Then
+        Exit Sub
+    End If
+    
+    Set oFolder = oFso.GetFolder(a_sFolder)
+    
+    '// サブフォルダを再帰（サブフォルダを探す必要がない場合はこのFor文を削除してください）
+    For Each oSubFolder In oFolder.SubFolders
+        Call SearchAllFile(oSubFolder.Path, s_ArFile)
+    Next
+    
+    i = UBound(s_ArFile)
+    
+    '// カレントフォルダ内のファイルを取得
+    For Each oFile In oFolder.Files
+        If (i <> 0 Or s_ArFile(i) <> "") Then
+            i = i + 1
+            ReDim Preserve s_ArFile(i)
+        End If
+        
+        '// ファイルパスを配列に格納
+        s_ArFile(i) = oFile.Path
+    Next
+End Sub
